@@ -1,15 +1,15 @@
 //"SPDX-License-Identifier: UNLICENSED"
 pragma solidity ^0.8.7;
-pragma experimental ABIEncoderV2;
 
 import "./ERC721A.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 enum SaleState {
     NOSALE, PRESALE, MAINSALE
 }
 
-contract SimpleCollectible is ERC721A, Ownable {
+contract SimpleCollectible is ERC721A, Ownable, ReentrancyGuard {
     uint256 public tokenCounter;
 
     uint256 public _presalePrice = 10000000000000000;
@@ -27,12 +27,13 @@ contract SimpleCollectible is ERC721A, Ownable {
     mapping(address => bool) addressToPreSaleEntry;
     mapping(address => uint256) addressToMintedEntry;
 
-    constructor () ERC721A ("DesignerPunk Kids","DP", 25, 5555)  {
+    constructor () ERC721A ("DesignerPunk Kids","DP", 25, _totalSupply)  {
         _saleState = SaleState.PRESALE;
+        tokenCounter = 1;
         setBaseURI("https://mfproductions.mypinata.cloud/ipfs/QmeZ9dKXCFDJKJ63X9BQ7SRqp6Crf81xFxGVkkAwKkSSvo/");
     }
 
-    function mintPresaleCollectibles(uint256 _count) public payable {
+    function mintPresaleCollectibles(uint256 _count) public payable nonReentrant {
         require(_saleState == SaleState.PRESALE, "Sale is not yet open");
         require(addressToMintedEntry[msg.sender] + _count < _maxPerPresaleWallet, "Max reached per presale wallet");
         require(isWalletInPresale(msg.sender), "Wallet isnt in presale! The owner needs to addWalletToPresale.");
@@ -44,13 +45,20 @@ contract SimpleCollectible is ERC721A, Ownable {
         addressToMintedEntry[msg.sender] += _count;
     }
 
-    function mintCollectibles(uint256 _count) public payable {
+    function mintCollectibles(uint256 _count) public payable nonReentrant {
         require(_saleState == SaleState.MAINSALE, "Sale is not yet open");
  
         require((_count + tokenCounter) <= _totalSupply, "Ran out of NFTs for sale! Sry!");
         require(msg.value >= (_salePrice * _count), "Ether value sent is not correct");
 
         _safeMint(msg.sender, _count);
+         tokenCounter += _count;
+    }
+
+    function mintForOwner(uint256 _count, address _user) public onlyOwner { 
+        require((_count + tokenCounter) <= _totalSupply, "Ran out of NFTs for sale! Sry!");
+
+        _safeMint(_user, _count);
          tokenCounter += _count;
     }
     
@@ -81,7 +89,7 @@ contract SimpleCollectible is ERC721A, Ownable {
     function getBaseURI() public view returns (string memory){
         return _baseTokenURI;
     }
-    function withdrawAll() public payable onlyOwner {
+    function withdrawAll() public payable onlyOwner nonReentrant {
         require(payable(msg.sender).send(address(this).balance));
     }
 }
