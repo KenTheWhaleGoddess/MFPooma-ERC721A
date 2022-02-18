@@ -15,8 +15,8 @@ contract SimpleCollectible is ERC721A, Ownable {
     uint256 public _presalePrice = 10000000000000000;
     uint256 public _salePrice = 20000000000000000;
 
-    uint256 public _presaleSupply = 100;
-    uint256 public _totalSupply = 10000; 
+    uint256 public _presaleSupply = 1001;
+    uint256 public _totalSupply = 5556; 
 
     uint256 public _maxPerPresaleWallet = 6; //5
 
