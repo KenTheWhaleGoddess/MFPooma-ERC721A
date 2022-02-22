@@ -15,10 +15,10 @@ contract SimpleCollectible is ERC721A, Ownable, ReentrancyGuard {
     uint256 public presalePrice = 10000000000000000;
     uint256 public salePrice = 20000000000000000;
 
-    uint256 private presaleSupply = 4;
-    uint256 private maxSupply = 6; 
+    uint256 private presaleSupply = 1000;
+    uint256 private maxSupply = 5555; 
 
-    uint256 private maxPerPresaleWallet = 6; //5
+    uint256 private maxPerPresaleWallet = 25; //5
     uint256 private maxPerTx = 25;
 
     string private baseTokenURI;
@@ -26,8 +26,7 @@ contract SimpleCollectible is ERC721A, Ownable, ReentrancyGuard {
 
     // Faciliating the needed functionality for the presale
     mapping(address => bool) addressToPreSaleEntry;
-    mapping(address => uint256) addressToMintedEntry;
-    mapping(address => bool) trustedProxy;
+    mapping(address => uint256) addressToMintable;
 
     constructor () ERC721A ("DesignerPunk Kids","DP", maxPerTx, maxSupply)  {
         saleState = SaleState.PRESALE;
@@ -37,14 +36,25 @@ contract SimpleCollectible is ERC721A, Ownable, ReentrancyGuard {
 
     function mintPresaleCollectibles(uint256 _count) public payable nonReentrant {
         require(saleState == SaleState.PRESALE, "Sale is not yet open");
-        require(addressToMintedEntry[msg.sender] + _count < maxPerPresaleWallet, "Max reached per presale wallet");
+        require(_count < maxPerPresaleWallet, "Max reached per presale wallet");
         require(isWalletInPresale(msg.sender), "Wallet isnt in presale! The owner needs to addWalletToPresale.");
         require((_count + tokenCounter) <= presaleSupply, "Ran out of NFTs for presale! Sry!");
         require(msg.value >= (presalePrice * _count), "Ether value sent is too low");
 
         _safeMint(msg.sender, _count);
         tokenCounter += _count;
-        addressToMintedEntry[msg.sender] += _count;
+    }
+
+    function mintFreePresaleCollectibles(uint256 _count) public payable nonReentrant {
+        require(saleState == SaleState.PRESALE, "Sale is not yet open");
+        require(addressToMintable[msg.sender] >= _count, "Max reached per presale wallet");
+        require(isWalletInPresale(msg.sender), "Wallet isnt in presale! The owner needs to addWalletToPresale.");
+        require((_count + tokenCounter) <= presaleSupply, "Ran out of NFTs for presale! Sry!");
+        require(msg.value >= (presalePrice * _count), "Ether value sent is too low");
+
+        _safeMint(msg.sender, _count);
+        tokenCounter += _count;
+        addressToMintable[msg.sender] -= _count;
     }
 
     function mintCollectibles(uint256 _count) public payable nonReentrant {
@@ -92,16 +102,14 @@ contract SimpleCollectible is ERC721A, Ownable, ReentrancyGuard {
     function addWalletToPreSale(address _address) public onlyOwner {
         addressToPreSaleEntry[_address] = true;
     }
+    function addMintable(address[] memory _addresses) public onlyOwner {
+        for(uint256 i = 0; i < _addresses.length; i++) {
+            addressToMintable[_addresses[i]] += 1;
+        }
+    }
     
     function setMaxPerPresaleWallet(uint256 _maxPerPresaleWallet) public onlyOwner {
         maxPerPresaleWallet = _maxPerPresaleWallet;
-    }
-
-    function flipProxyState(address _address) public onlyOwner {
-        trustedProxy[_address] = !trustedProxy[_address];
-    }
-    function getProxyState(address _address) public view returns (bool) {
-        return trustedProxy[_address];
     }
 
     function setBaseURI(string memory uri) public onlyOwner {
@@ -115,13 +123,4 @@ contract SimpleCollectible is ERC721A, Ownable, ReentrancyGuard {
         require(payable(msg.sender).send(address(this).balance));
     }
 
-    function isApprovedForAll(address owner, address operator)
-        public
-        view
-        virtual
-        override
-        returns (bool)
-    {
-        return trustedProxy[operator] || ERC721A.isApprovedForAll(owner, operator);
-    }    
 }
